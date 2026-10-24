@@ -130,13 +130,13 @@
       display: grid;
       grid-template-columns: 1fr;
       gap: 12px;
-      margin-bottom: 25px;
+      margin-bottom: 15px;
     }
 
     .menu-card {
       background: var(--card-bg);
       border-radius: 12px;
-      padding: 15px;
+      padding: 12px 15px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -148,9 +148,9 @@
     }
 
     .menu-name {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: bold;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
     .menu-price {
@@ -191,8 +191,57 @@
     .count-display {
       font-size: 1.3rem;
       font-weight: bold;
-      width: 36px;
+      width: 32px;
       text-align: center;
+    }
+
+    /* 会計ボタンエリア */
+    .checkout-area {
+      margin-bottom: 25px;
+    }
+
+    .checkout-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s ease;
+    }
+
+    .checkout-btn:active {
+      background: #059669;
+    }
+
+    /* メッセージ通知 */
+    .toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #10b981;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 200;
+    }
+
+    .toast.show {
+      opacity: 1;
     }
 
     /* 集計テーブル */
@@ -237,7 +286,7 @@
       font-weight: bold;
     }
 
-    /* ボタンエリア */
+    /* 操作ボタン */
     .action-btns {
       display: flex;
       gap: 10px;
@@ -255,7 +304,7 @@
     }
 
     .btn-csv {
-      background: #10b981;
+      background: #3b82f6;
       color: white;
     }
 
@@ -266,6 +315,8 @@
   </style>
 </head>
 <body>
+
+<div id="toast" class="toast">会計を完了しました</div>
 
 <header>
   <div class="day-selector">
@@ -288,8 +339,16 @@
   <!-- 時間帯タブ -->
   <div class="time-tabs" id="time-tabs"></div>
 
-  <!-- 注文カウントエリア -->
+  <!-- 注文入力エリア -->
   <div class="menu-grid" id="menu-grid"></div>
+
+  <!-- 会計ボタン -->
+  <div class="checkout-area">
+    <button class="checkout-btn" onclick="checkout()">
+      <span>会計する（入力リセット）</span>
+      <span id="checkout-summary">0杯 / ¥0</span>
+    </button>
+  </div>
 
   <!-- 集計テーブル -->
   <div class="section-title">
@@ -307,7 +366,7 @@
   <!-- 操作ボタン -->
   <div class="action-btns">
     <button class="action-btn btn-csv" onclick="exportCSV()">CSV保存</button>
-    <button class="action-btn btn-reset" onclick="resetData()">データリセット</button>
+    <button class="action-btn btn-reset" onclick="resetData()">全データリセット</button>
   </div>
 </div>
 
@@ -327,8 +386,17 @@
   let currentDay = 1;
   let currentSlotIndex = 0;
 
-  // データ構造初期化 { 1: { "09:00-10:00": { "ミルクティー": 0, ... } }, 2: { ... } }
+  // 1回の注文用の状態データ
+  let currentOrder = initOrder();
+
+  // 時間帯別の累計売上データ
   let salesData = JSON.parse(localStorage.getItem("salesData")) || initData();
+
+  function initOrder() {
+    const order = {};
+    MENUS.forEach(m => order[m] = 0);
+    return order;
+  }
 
   function initData() {
     const data = { 1: {}, 2: {} };
@@ -360,22 +428,53 @@
     updateUI();
   }
 
-  function updateCount(menu, delta) {
+  // 入力中のカウント変更
+  function updateOrderCount(menu, delta) {
+    const currentVal = currentOrder[menu] || 0;
+    currentOrder[menu] = Math.max(0, currentVal + delta);
+    updateUI();
+  }
+
+  // 会計処理（累計に加算して入力をリセット）
+  function checkout() {
+    let orderTotalCups = 0;
+    MENUS.forEach(m => orderTotalCups += currentOrder[m]);
+
+    if (orderTotalCups === 0) {
+      alert("注文数を入力してください");
+      return;
+    }
+
     const currentSlot = TIME_SLOTS[currentSlotIndex];
-    const currentVal = salesData[currentDay][currentSlot][menu] || 0;
-    const newVal = Math.max(0, currentVal + delta);
-    salesData[currentDay][currentSlot][menu] = newVal;
+
+    // 累計データに加算
+    MENUS.forEach(m => {
+      salesData[currentDay][currentSlot][m] += currentOrder[m];
+    });
+
+    // 入力エリアのリセット
+    currentOrder = initOrder();
+
+    // データの保存と画面更新
     saveData();
+    showToast();
+  }
+
+  function showToast() {
+    const toast = document.getElementById("toast");
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1500);
   }
 
   function updateUI() {
     renderTimeTabs();
     renderMenuCards();
+    renderCheckoutSummary();
     renderSummaryTable();
     renderTotals();
   }
 
-  // 時間帯タブの描画
+  // 時間帯タブ
   function renderTimeTabs() {
     const container = document.getElementById("time-tabs");
     container.innerHTML = TIME_SLOTS.map((slot, index) => `
@@ -385,14 +484,12 @@
     `).join("");
   }
 
-  // メニュー入力カードの描画
+  // 注文入力カード
   function renderMenuCards() {
     const container = document.getElementById("menu-grid");
-    const currentSlot = TIME_SLOTS[currentSlotIndex];
-    const slotData = salesData[currentDay][currentSlot];
 
     container.innerHTML = MENUS.map(menu => {
-      const count = slotData[menu] || 0;
+      const count = currentOrder[menu] || 0;
       return `
         <div class="menu-card">
           <div class="menu-info">
@@ -400,16 +497,24 @@
             <div class="menu-price">¥${PRICE}</div>
           </div>
           <div class="counter-controls">
-            <button class="count-btn btn-minus" onclick="updateCount('${menu}', -1)">-</button>
+            <button class="count-btn btn-minus" onclick="updateOrderCount('${menu}', -1)">-</button>
             <span class="count-display">${count}</span>
-            <button class="count-btn btn-plus" onclick="updateCount('${menu}', 1)">+</button>
+            <button class="count-btn btn-plus" onclick="updateOrderCount('${menu}', 1)">+</button>
           </div>
         </div>
       `;
     }).join("");
   }
 
-  // 集計テーブルの描画
+  // 会計ボタン内の小計表示
+  function renderCheckoutSummary() {
+    let orderCups = 0;
+    MENUS.forEach(m => orderCups += currentOrder[m]);
+    const orderPrice = orderCups * PRICE;
+    document.getElementById("checkout-summary").innerText = `${orderCups}杯 / ¥${orderPrice.toLocaleString()}`;
+  }
+
+  // 集計表
   function renderSummaryTable() {
     const headerRow = document.getElementById("table-header");
     const bodyRow = document.getElementById("table-body");
@@ -439,7 +544,6 @@
       `;
     });
 
-    // 最終行（日計）
     const menuTotals = MENUS.map(m => {
       return TIME_SLOTS.reduce((sum, slot) => sum + (salesData[currentDay][slot][m] || 0), 0);
     });
@@ -456,7 +560,7 @@
     bodyRow.innerHTML = html;
   }
 
-  // 本日合計表示の描画
+  // 本日合計表示
   function renderTotals() {
     let dayTotalCups = 0;
     TIME_SLOTS.forEach(slot => {
@@ -469,7 +573,7 @@
     document.getElementById("total-sales").innerText = `¥${(dayTotalCups * PRICE).toLocaleString()}`;
   }
 
-  // CSVダウンロード
+  // CSV保存
   function exportCSV() {
     let csv = "\uFEFFDay,時間帯," + MENUS.join(",") + ",合計杯数,売上金額\n";
     
@@ -493,10 +597,11 @@
     a.click();
   }
 
-  // データリセット
+  // 全データリセット
   function resetData() {
     if (confirm("全ての売上データをリセットしてもよろしいですか？")) {
       salesData = initData();
+      currentOrder = initOrder();
       saveData();
     }
   }
