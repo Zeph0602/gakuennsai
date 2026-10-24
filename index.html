@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>売上管理アプリ</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg-color: #f3f4f6;
+      --card-bg: #ffffff;
+      --text-color: #1f2937;
+      --accent-color: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      padding-bottom: 40px;
+    }
+
+    /* ヘッダー */
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 15px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .day-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .day-btn {
+      flex: 1;
+      padding: 8px;
+      border: 2px solid rgba(255,255,255,0.4);
+      background: transparent;
+      color: white;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .day-btn.active {
+      background: white;
+      color: var(--primary);
+      border-color: white;
+    }
+
+    .summary-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 12px 16px;
+      border-radius: 8px;
+      backdrop-filter: blur(5px);
+    }
+
+    .summary-item {
+      text-align: center;
+    }
+
+    .summary-label {
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    .summary-val {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+    }
+
+    /* 時間帯タブ */
+    .time-tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 8px;
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+      scrollbar-width: none;
+    }
+
+    .time-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .time-tab {
+      flex: 0 0 auto;
+      padding: 8px 14px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #6b7280;
+      cursor: pointer;
+    }
+
+    .time-tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* メニューカードリスト */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+
+    .menu-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .menu-info {
+      flex: 1;
+    }
+
+    .menu-name {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .menu-price {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+
+    .counter-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .count-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: none;
+      font-size: 1.4rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+
+    .btn-minus {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .btn-plus {
+      background: #dcfce7;
+      color: #10b981;
+    }
+
+    .count-display {
+      font-size: 1.3rem;
+      font-weight: bold;
+      width: 36px;
+      text-align: center;
+    }
+
+    /* 集計テーブル */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin: 20px 0 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-container {
+      background: white;
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    th {
+      background: #f9fafb;
+      color: #4b5563;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .total-row {
+      background: #eef2ff;
+      font-weight: bold;
+    }
+
+    /* ボタンエリア */
+    .action-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .btn-csv {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-reset {
+      background: #ef4444;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="day-selector">
+    <button class="day-btn active" id="btn-day1" onclick="switchDay(1)">1日目 (Day 1)</button>
+    <button class="day-btn" id="btn-day2" onclick="switchDay(2)">2日目 (Day 2)</button>
+  </div>
+  <div class="summary-box">
+    <div class="summary-item">
+      <div class="summary-label">本日合計杯数</div>
+      <div class="summary-val" id="total-cups">0 杯</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-label">本日合計売上</div>
+      <div class="summary-val" id="total-sales">¥0</div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- 時間帯タブ -->
+  <div class="time-tabs" id="time-tabs"></div>
+
+  <!-- 注文カウントエリア -->
+  <div class="menu-grid" id="menu-grid"></div>
+
+  <!-- 集計テーブル -->
+  <div class="section-title">
+    <span>時間帯別 集計表</span>
+  </div>
+  <div class="table-container">
+    <table id="summary-table">
+      <thead>
+        <tr id="table-header"></tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- 操作ボタン -->
+  <div class="action-btns">
+    <button class="action-btn btn-csv" onclick="exportCSV()">CSV保存</button>
+    <button class="action-btn btn-reset" onclick="resetData()">データリセット</button>
+  </div>
+</div>
+
+<script>
+  const PRICE = 400;
+  const MENUS = ["ミルクティー", "レモンティー", "ほうじ茶", "烏龍茶", "いちごミルク", "無糖"];
+  const TIME_SLOTS = [
+    "09:00-10:00",
+    "10:00-11:00",
+    "11:00-12:00",
+    "12:00-13:00",
+    "13:00-14:00",
+    "14:00-15:00",
+    "15:00-16:00"
+  ];
+
+  let currentDay = 1;
+  let currentSlotIndex = 0;
+
+  // データ構造初期化 { 1: { "09:00-10:00": { "ミルクティー": 0, ... } }, 2: { ... } }
+  let salesData = JSON.parse(localStorage.getItem("salesData")) || initData();
+
+  function initData() {
+    const data = { 1: {}, 2: {} };
+    [1, 2].forEach(day => {
+      TIME_SLOTS.forEach(slot => {
+        data[day][slot] = {};
+        MENUS.forEach(menu => {
+          data[day][slot][menu] = 0;
+        });
+      });
+    });
+    return data;
+  }
+
+  function saveData() {
+    localStorage.setItem("salesData", JSON.stringify(salesData));
+    updateUI();
+  }
+
+  function switchDay(day) {
+    currentDay = day;
+    document.getElementById("btn-day1").classList.toggle("active", day === 1);
+    document.getElementById("btn-day2").classList.toggle("active", day === 2);
+    updateUI();
+  }
+
+  function switchSlot(index) {
+    currentSlotIndex = index;
+    updateUI();
+  }
+
+  function updateCount(menu, delta) {
+    const currentSlot = TIME_SLOTS[currentSlotIndex];
+    const currentVal = salesData[currentDay][currentSlot][menu] || 0;
+    const newVal = Math.max(0, currentVal + delta);
+    salesData[currentDay][currentSlot][menu] = newVal;
+    saveData();
+  }
+
+  function updateUI() {
+    renderTimeTabs();
+    renderMenuCards();
+    renderSummaryTable();
+    renderTotals();
+  }
+
+  // 時間帯タブの描画
+  function renderTimeTabs() {
+    const container = document.getElementById("time-tabs");
+    container.innerHTML = TIME_SLOTS.map((slot, index) => `
+      <button class="time-tab ${index === currentSlotIndex ? 'active' : ''}" onclick="switchSlot(${index})">
+        ${slot}
+      </button>
+    `).join("");
+  }
+
+  // メニュー入力カードの描画
+  function renderMenuCards() {
+    const container = document.getElementById("menu-grid");
+    const currentSlot = TIME_SLOTS[currentSlotIndex];
+    const slotData = salesData[currentDay][currentSlot];
+
+    container.innerHTML = MENUS.map(menu => {
+      const count = slotData[menu] || 0;
+      return `
+        <div class="menu-card">
+          <div class="menu-info">
+            <div class="menu-name">${menu}</div>
+            <div class="menu-price">¥${PRICE}</div>
+          </div>
+          <div class="counter-controls">
+            <button class="count-btn btn-minus" onclick="updateCount('${menu}', -1)">-</button>
+            <span class="count-display">${count}</span>
+            <button class="count-btn btn-plus" onclick="updateCount('${menu}', 1)">+</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // 集計テーブルの描画
+  function renderSummaryTable() {
+    const headerRow = document.getElementById("table-header");
+    const bodyRow = document.getElementById("table-body");
+
+    headerRow.innerHTML = `<th>時間帯</th>` + MENUS.map(m => `<th>${m}</th>`).join("") + `<th>合計杯数</th><th>売上</th>`;
+
+    let html = "";
+    let dayTotalCups = 0;
+
+    TIME_SLOTS.forEach(slot => {
+      let slotCups = 0;
+      const cells = MENUS.map(m => {
+        const count = salesData[currentDay][slot][m] || 0;
+        slotCups += count;
+        return `<td>${count}</td>`;
+      }).join("");
+
+      dayTotalCups += slotCups;
+
+      html += `
+        <tr>
+          <td style="font-weight:600; white-space:nowrap;">${slot}</td>
+          ${cells}
+          <td style="font-weight:600;">${slotCups}</td>
+          <td style="font-weight:600;">¥${(slotCups * PRICE).toLocaleString()}</td>
+        </tr>
+      `;
+    });
+
+    // 最終行（日計）
+    const menuTotals = MENUS.map(m => {
+      return TIME_SLOTS.reduce((sum, slot) => sum + (salesData[currentDay][slot][m] || 0), 0);
+    });
+
+    html += `
+      <tr class="total-row">
+        <td>日計</td>
+        ${menuTotals.map(t => `<td>${t}</td>`).join("")}
+        <td>${dayTotalCups}</td>
+        <td>¥${(dayTotalCups * PRICE).toLocaleString()}</td>
+      </tr>
+    `;
+
+    bodyRow.innerHTML = html;
+  }
+
+  // 本日合計表示の描画
+  function renderTotals() {
+    let dayTotalCups = 0;
+    TIME_SLOTS.forEach(slot => {
+      MENUS.forEach(m => {
+        dayTotalCups += salesData[currentDay][slot][m] || 0;
+      });
+    });
+
+    document.getElementById("total-cups").innerText = `${dayTotalCups} 杯`;
+    document.getElementById("total-sales").innerText = `¥${(dayTotalCups * PRICE).toLocaleString()}`;
+  }
+
+  // CSVダウンロード
+  function exportCSV() {
+    let csv = "\uFEFFDay,時間帯," + MENUS.join(",") + ",合計杯数,売上金額\n";
+    
+    [1, 2].forEach(day => {
+      TIME_SLOTS.forEach(slot => {
+        let slotCups = 0;
+        const counts = MENUS.map(m => {
+          const c = salesData[day][slot][m] || 0;
+          slotCups += c;
+          return c;
+        });
+        csv += `Day ${day},${slot},${counts.join(",")},${slotCups},${slotCups * PRICE}\n`;
+      });
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sales_report_day${currentDay}.csv`;
+    a.click();
+  }
+
+  // データリセット
+  function resetData() {
+    if (confirm("全ての売上データをリセットしてもよろしいですか？")) {
+      salesData = initData();
+      saveData();
+    }
+  }
+
+  // 初期起動
+  updateUI();
+</script>
+
+</body>
+</html>
